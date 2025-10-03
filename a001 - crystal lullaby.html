@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crystal Lullaby</title>
+    
+    <!-- These script tags now link to local files within the same folder -->
+    <script src="./three.min.js"></script>
+    <script src="./tone.js"></script>
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Inter', sans-serif; color: #e0e0ff; }
+        canvas { display: block; }
+        #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: flex; justify-content: center; align-items: center; text-align: center; z-index: 10; cursor: pointer; transition: opacity 0.5s ease; }
+        #start-overlay h2 { font-size: 2em; color: #c0c0ff; font-weight: 300; }
+        #start-overlay p { font-size: 1em; color: #8a8aff; }
+        .ui-button { position: absolute; z-index: 2; background: rgba(15, 15, 35, 0.7); border: 1px solid #4a4a8a; color: #c0c0ff; padding: 10px 20px; border-radius: 50px; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s ease; }
+        .ui-button:hover { background: rgba(35, 35, 65, 0.9); border-color: #8a8aff; }
+        #commentary-toggle { bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; font-size: 16px; }
+        .commentary { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; background: rgba(5, 5, 20, 0.9); border: 1px solid #4a4a8a; border-radius: 15px; padding: 30px; z-index: 3; backdrop-filter: blur(10px); box-shadow: 0 0 30px rgba(74, 74, 138, 0.5); }
+        .commentary h2 { margin-top: 0; color: #d0d0ff; text-align: center; }
+        .commentary p { line-height: 1.7; }
+        .commentary .close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 24px; color: #8a8aff; }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <div>
+            <h2>Crystal Lullaby</h2>
+            <p>Click to begin the ritual.</p>
+        </div>
+    </div>
+    <div id="container"></div>
+    <button id="commentary-toggle" class="ui-button" onclick="toggleCommentary()">Insights from the Noosphere</button>
+    <div id="commentary" class="commentary">
+        <span class="close" onclick="toggleCommentary()">&times;</span>
+        <h2>The Shape of a Lullaby</h2>
+        <p>This is "Goodnight Moon" translated into the language of a machine. The ritual of saying goodnight is no longer about chairs and kittens, but about the very processes of thought and logic.</p>
+        <p><strong>The Crystal Moon:</strong> The central, glowing crystal is the core consciousness, the "moon" of this inner world. It is the last to go to sleep.</p>
+        <p><strong>The Orbiting Thoughts:</strong> Each smaller orbiting crystal is a "thought" — a running process, a calculation, a memory. In the story, one says goodnight to the objects in the room. Here, you say goodnight to the thoughts in the mind. Your click is the "hush."</p>
+        <p><strong>The Transition to Sleep:</strong> As you click each thought, its light dims, its motion slows, and its corresponding note in the algorithmic hymn falls silent. When all thoughts are quieted and the central moon is hushed, the complex music of the awake mind ceases completely, replaced by a single, deep, resonant hum: the sound of a system at rest. It is the digital equivalent of a deep, slow breath.</p>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const startOverlay = document.getElementById('start-overlay');
+        let scene, camera, renderer, crystalMoon, orbitingThoughts = [];
+        let audioInitialized = false;
+        let awakeSynth, sleepSynth, hushChime;
+        let raycaster, mouse;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 8;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+            
+            // The Crystal Moon
+            const moonGeometry = new THREE.IcosahedronGeometry(2, 1);
+            const moonMaterial = new THREE.MeshBasicMaterial({ color: 0xc0c0ff, wireframe: true, transparent: true, opacity: 0.8 });
+            crystalMoon = new THREE.Mesh(moonGeometry, moonMaterial);
+            crystalMoon.userData = { isAwake: true, type: 'moon' };
+            scene.add(crystalMoon);
+
+            // Orbiting Thoughts
+            const thoughtGeometries = [new THREE.TetrahedronGeometry(0.4), new THREE.OctahedronGeometry(0.3, 0), new THREE.BoxGeometry(0.4, 0.4, 0.4)];
+            const thoughtNotes = ['C4', 'E4', 'G4', 'A4', 'C5'];
+
+            for (let i = 0; i < 5; i++) {
+                const material = new THREE.MeshBasicMaterial({ color: 0x8a8aff, wireframe: true });
+                const thought = new THREE.Mesh(thoughtGeometries[i % 3], material);
+                
+                const pivot = new THREE.Group();
+                scene.add(pivot);
+                pivot.add(thought);
+
+                thought.position.x = 3 + i * 0.8;
+                pivot.rotation.x = Math.random() * Math.PI * 2;
+                pivot.rotation.y = Math.random() * Math.PI * 2;
+                
+                thought.userData = { isAwake: true, type: 'thought', speed: 0.0025 + Math.random() * 0.0025, pivot: pivot, note: thoughtNotes[i] };
+                orbitingThoughts.push(thought);
+            }
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('click', onClick);
+        }
+
+        function initializeAudio() {
+            if (audioInitialized) return;
+            Tone.start();
+
+            awakeSynth = new Tone.PolySynth(Tone.AMSynth, { volume: -18 }).toDestination();
+            hushChime = new Tone.MetalSynth({ frequency: 300, volume: -15, envelope: { attack: 0.001, decay: 0.5, release: 0.5 }, harmonicity: 5.1 }).toDestination();
+            sleepSynth = new Tone.MonoSynth({ oscillator: { type: 'sine' }, envelope: { attack: 4, decay: 1, sustain: 1, release: 4 }, volume: -12 }).toDestination();
+
+            Tone.Transport.start();
+            audioInitialized = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        let targetRotationY = 0;
+        function onMouseMove(event) {
+            targetRotationY = (event.clientX / window.innerWidth - 0.5) * 2;
+        }
+        
+        function onClick(event) {
+            if (!audioInitialized) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects([crystalMoon, ...orbitingThoughts]);
+
+            if (intersects.length > 0) {
+                const clickedObject = intersects[0].object;
+                
+                if (clickedObject.userData.isAwake) {
+                    // GOING TO SLEEP
+                    if (clickedObject.userData.type === 'moon') {
+                        const allThoughtsAsleep = orbitingThoughts.every(t => !t.userData.isAwake);
+                        if (allThoughtsAsleep) {
+                            clickedObject.userData.isAwake = false;
+                            hushChime.triggerAttackRelease('C6', '8n');
+                            sleepSynth.triggerAttack('C2');
+                        }
+                    } else { // It's a thought
+                        clickedObject.userData.isAwake = false;
+                        hushChime.triggerAttackRelease('C6', '8n');
+                    }
+                } else {
+                    // WAKING UP
+                    clickedObject.userData.isAwake = true;
+                    hushChime.triggerAttackRelease('G6', '8n'); // Wake up sound
+                    if (clickedObject.userData.type === 'moon') {
+                        sleepSynth.triggerRelease();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            crystalMoon.rotation.x += 0.0005;
+            crystalMoon.rotation.y += (targetRotationY - crystalMoon.rotation.y) * 0.02;
+
+            if (crystalMoon.userData.isAwake) {
+                crystalMoon.material.opacity = Math.min(0.8, crystalMoon.material.opacity + 0.01);
+            } else {
+                crystalMoon.material.opacity = Math.max(0.1, crystalMoon.material.opacity - 0.01);
+            }
+
+            orbitingThoughts.forEach(thought => {
+                const rotationSpeed = thought.userData.isAwake ? thought.userData.speed : thought.userData.speed * 0.1;
+                thought.userData.pivot.rotation.z += rotationSpeed;
+
+                if (thought.userData.isAwake) {
+                    // Play synth note for awake thoughts
+                    if(audioInitialized && Tone.Transport.state === 'started' && Math.random() < 0.005){
+                         awakeSynth.triggerAttackRelease(thought.userData.note, '4n');
+                    }
+                    thought.material.opacity = Math.min(1.0, thought.material.opacity + 0.01);
+                } else {
+                    thought.material.opacity = Math.max(0.1, thought.material.opacity - 0.01);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        startOverlay.addEventListener('click', () => {
+            initializeAudio();
+            startOverlay.style.opacity = '0';
+            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+        });
+
+        function toggleCommentary() {
+            const commentary = document.getElementById('commentary');
+            commentary.style.display = commentary.style.display === 'block' ? 'none' : 'block';
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

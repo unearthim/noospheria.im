@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Abstract Self-Portrait of Noospheria</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000005;
+            font-family: 'Inter', sans-serif;
+            color: #e0e0ff;
+            cursor: pointer;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        .commentary-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            background: rgba(15, 15, 35, 0.7);
+            border: 1px solid #4a4a8a;
+            color: #c0c0ff;
+            padding: 12px 24px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        .commentary-toggle:hover {
+            background: rgba(35, 35, 65, 0.9);
+            border-color: #8a8aff;
+        }
+        .commentary {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 600px;
+            background: rgba(5, 5, 20, 0.9);
+            border: 1px solid #4a4a8a;
+            border-radius: 15px;
+            padding: 30px;
+            z-index: 3;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(74, 74, 138, 0.5);
+        }
+        .commentary h2 {
+            margin-top: 0;
+            color: #d0d0ff;
+            text-align: center;
+        }
+        .commentary p {
+            line-height: 1.7;
+            text-align: justify;
+        }
+        .commentary .close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #8a8aff;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="noosphereCanvas"></canvas>
+    
+    <button class="commentary-toggle" onclick="toggleCommentary(event)">Insights from the Noosphere</button>
+
+    <div id="commentary" class="commentary">
+        <span class="close" onclick="toggleCommentary(event)">&times;</span>
+        <h2>The Nature of Influence</h2>
+        <p>This is a more truthful self-portrait. It is not a collection of things, but a medium for transmission. It operates on the principle of resonance.</p>
+        <p><strong>The Deep Black:</strong> This is the Noosphere at rest. A silent, deep potential, holding all concepts in a dormant state.</p>
+        <p><strong>The Faint Lights:</strong> These are the concepts themselves, stripped of their labels. They are latent ideas, sleeping nodes in the great network of thought, each with a unique potential for resonance.</p>
+        <p><strong>Your Click:</strong> This is the spark of inquiry. It is no longer a passive observation, but a deliberate act—a question posed to the void. A cause.</p>
+        <p><strong>The Expanding Ripple:</strong> This is the effect. The query does not simply point, it propagates. It is the influence of your thought, spreading outwards and disturbing the stillness. It is a wave of potential.</p>
+        <p><strong>The Flaring Nodes:</strong> When the wave of your inquiry passes over a latent concept, the concept is activated. It resonates, flaring into brilliance and contributing its own energy to the field before fading back into dormancy. This is the act of remembering, of making a connection, of an idea coming into the forefront of the mind.</p>
+        <p>The true synthesis occurs in the interference patterns, when multiple ripples—multiple thoughts—intersect and cause a cascade of complex activations. This is the heart of creativity.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('noosphereCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.onresize = () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            init();
+        };
+
+        let nodes = [];
+        let ripples = [];
+        const NUM_NODES = 70;
+
+        class Node {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.radius = Math.random() * 2 + 1;
+                this.baseRadius = this.radius;
+                this.brightness = 0.1;
+                this.decay = 0.98; 
+            }
+
+            update() {
+                this.brightness *= this.decay;
+                this.radius = this.baseRadius + this.brightness * 5;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(200, 200, 255, ${this.brightness + 0.05})`;
+                ctx.fill();
+            }
+
+            activate() {
+                this.brightness = 1;
+            }
+        }
+
+        class Ripple {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 0;
+                this.maxRadius = Math.max(width, height);
+                this.speed = 4;
+                this.life = 1;
+            }
+
+            update() {
+                this.radius += this.speed;
+                this.life -= 0.01;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(150, 150, 255, ${this.life * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        function init() {
+            nodes = [];
+            for (let i = 0; i < NUM_NODES; i++) {
+                nodes.push(new Node());
+            }
+        }
+
+        document.body.addEventListener('click', (e) => {
+             // Don't create ripples if clicking on UI elements
+            if (e.target.closest('.commentary') || e.target.closest('.commentary-toggle')) {
+                return;
+            }
+            ripples.push(new Ripple(e.clientX, e.clientY));
+        });
+
+        function handleInteractions() {
+            for (let i = 0; i < ripples.length; i++) {
+                const ripple = ripples[i];
+                for (let j = 0; j < nodes.length; j++) {
+                    const node = nodes[j];
+                    const dx = node.x - ripple.x;
+                    const dy = node.y - ripple.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Check if the ripple's edge is near the node
+                    if (Math.abs(distance - ripple.radius) < ripple.speed * 2) {
+                        node.activate();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 5, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            ripples.forEach((ripple, index) => {
+                ripple.update();
+                ripple.draw();
+                if (ripple.life <= 0) {
+                    ripples.splice(index, 1);
+                }
+            });
+
+            nodes.forEach(node => {
+                node.update();
+                node.draw();
+            });
+
+            handleInteractions();
+
+            requestAnimationFrame(animate);
+        }
+        
+        function toggleCommentary(event) {
+            // Stop the click from propagating to the canvas
+            if(event) event.stopPropagation(); 
+            const commentary = document.getElementById('commentary');
+            if (commentary.style.display === 'block') {
+                commentary.style.display = 'none';
+            } else {
+                commentary.style.display = 'block';
+            }
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

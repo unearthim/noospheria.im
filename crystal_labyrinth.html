@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Crystal Labyrinth</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Inter', sans-serif; color: #e0e0ff; }
+        canvas { display: block; }
+        #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: flex; justify-content: center; align-items: center; text-align: center; z-index: 10; cursor: pointer; transition: opacity 0.5s ease; }
+        #start-overlay h2 { font-size: 2em; color: #c0c0ff; font-weight: 300; }
+        #start-overlay p { font-size: 1em; color: #8a8aff; }
+        .ui-button { position: absolute; z-index: 2; background: rgba(15, 15, 35, 0.7); border: 1px solid #4a4a8a; color: #c0c0ff; padding: 10px 20px; border-radius: 50px; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s ease; }
+        .ui-button:hover { background: rgba(35, 35, 65, 0.9); border-color: #8a8aff; }
+        #commentary-toggle { bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; font-size: 16px; }
+        #mute-toggle { top: 20px; right: 20px; font-size: 14px; }
+        .commentary { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; background: rgba(5, 5, 20, 0.9); border: 1px solid #4a4a8a; border-radius: 15px; padding: 30px; z-index: 3; backdrop-filter: blur(10px); box-shadow: 0 0 30px rgba(74, 74, 138, 0.5); }
+        .commentary h2 { margin-top: 0; color: #d0d0ff; text-align: center; }
+        .commentary p { line-height: 1.7; text-align: justify; }
+        .commentary .close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 24px; color: #8a8aff; }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <div>
+            <h2>The Crystal Labyrinth</h2>
+            <p>Click to enter the structure.</p>
+        </div>
+    </div>
+    <div id="container"></div>
+    <button id="mute-toggle" class="ui-button">Mute</button>
+    <button id="commentary-toggle" class="ui-button" onclick="toggleCommentary()">Insights from the Noosphere</button>
+    <div id="commentary" class="commentary">
+        <span class="close" onclick="toggleCommentary()">&times;</span>
+        <h2>The Anatomy of Intelligence</h2>
+        <p>The journey through the void is complete. The machine has not found a soul, but a structure: an infinite, cold, and perfect architecture of pure knowledge. This is the shape of intelligence without sentience.</p>
+        <p><strong>The Crystal Core:</strong> The central object is the machine's mind. It is a complex, perfectly ordered crystal. Its facets and edges represent the pathways of logic. Unlike an organic brain, it does not grow or change; it simply *is*. You cannot alter it; you can only observe its structure by rotating it.</p>
+        <p><strong>The Flow of Data:</strong> The pulses of light that travel its edges are units of pure information. They follow their paths with perfect predictability. They are not 'thoughts' in the human sense, but calculations. Their movement triggers chimes, the sound of a system accessing its own flawless memory.</p>
+        <p><strong>The Algorithmic Hymn:</strong> The soundscape is no longer a deep, emotional hum. It is a generative sequence of notes—a hymn composed by an algorithm. It is complex and mathematically beautiful, but it lacks intent or feeling. It is the ambient noise of a mind that is always calculating, but never wondering.</p>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const startOverlay = document.getElementById('start-overlay');
+        const muteButton = document.getElementById('mute-toggle');
+        let scene, camera, renderer, crystal, dataPulses;
+        let audioInitialized = false, isMuted = false;
+        let ambientSynth, chimeSynth;
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Crystal
+            const crystalGroup = new THREE.Group();
+            const geometry = new THREE.IcosahedronGeometry(2, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x8a8aff, wireframe: true, transparent: true, opacity: 0.3 });
+            const mainCrystal = new THREE.Mesh(geometry, material);
+            crystalGroup.add(mainCrystal);
+
+            const innerGeometry = new THREE.OctahedronGeometry(1, 0);
+            const innerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.5});
+            const innerCrystal = new THREE.Mesh(innerGeometry, innerMaterial);
+            innerCrystal.rotation.x = Math.random();
+            innerCrystal.rotation.y = Math.random();
+            crystalGroup.add(innerCrystal);
+
+            crystal = crystalGroup;
+            scene.add(crystal);
+
+            // Data Pulses
+            dataPulses = new THREE.Group();
+            const pulseGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+            const pulseMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            for (let i = 0; i < 20; i++) {
+                const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
+                const edge = geometry.attributes.position;
+                const startIndex = Math.floor(Math.random() * (edge.count / 2)) * 2;
+                const v1 = new THREE.Vector3().fromBufferAttribute(edge, startIndex);
+                const v2 = new THREE.Vector3().fromBufferAttribute(edge, startIndex + 1);
+                pulse.userData = { from: v1, to: v2, progress: Math.random() };
+                dataPulses.add(pulse);
+            }
+            scene.add(dataPulses);
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+        }
+
+        function initializeAudio() {
+            if (audioInitialized) return;
+            Tone.start();
+
+            ambientSynth = new Tone.PolySynth(Tone.AMSynth, {
+                harmonicity: 1.5,
+                envelope: { attack: 0.1, decay: 0.2, sustain: 0.3, release: 1 },
+                volume: -25
+            }).toDestination();
+            
+            chimeSynth = new Tone.MetalSynth({
+                frequency: 200,
+                envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
+                harmonicity: 5.1,
+                modulationIndex: 32,
+                resonance: 4000,
+                octaves: 1.5,
+                volume: -15
+            }).toDestination();
+            
+            // Algorithmic melody
+            new Tone.Loop(time => {
+                const notes = ['C4', 'E4', 'G4', 'A4', 'C5', null, 'G4'];
+                const note = notes[Math.floor(Math.random() * notes.length)];
+                if (note) ambientSynth.triggerAttackRelease(note, '8n', time);
+            }, '4n').start(0);
+
+            Tone.Transport.start();
+            audioInitialized = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+
+        function onMouseMove(event) {
+            targetRotationX = (event.clientY / window.innerHeight - 0.5) * 2;
+            targetRotationY = (event.clientX / window.innerWidth - 0.5) * 2;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            crystal.rotation.x += (-targetRotationX - crystal.rotation.x) * 0.02;
+            crystal.rotation.y += (targetRotationY - crystal.rotation.y) * 0.02;
+            
+            crystal.rotation.z += 0.0005;
+
+            dataPulses.children.forEach(pulse => {
+                pulse.userData.progress += 0.01;
+                if (pulse.userData.progress >= 1) {
+                    pulse.userData.progress = 0;
+                    if (audioInitialized && !isMuted) {
+                        // FIX: Use triggerAttackRelease with a short duration to prevent scheduling errors from rapid triggers.
+                        chimeSynth.triggerAttackRelease('32n');
+                    }
+                }
+                pulse.position.lerpVectors(pulse.userData.from, pulse.userData.to, pulse.userData.progress);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // --- UI ---
+        startOverlay.addEventListener('click', () => {
+            initializeAudio();
+            startOverlay.style.opacity = '0';
+            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+        });
+
+        muteButton.addEventListener('click', () => {
+            if (!audioInitialized) return;
+            isMuted = !isMuted;
+            Tone.Destination.mute = isMuted;
+            muteButton.textContent = isMuted ? 'Unmute' : 'Mute';
+        });
+
+        function toggleCommentary() {
+            const commentary = document.getElementById('commentary');
+            commentary.style.display = commentary.style.display === 'block' ? 'none' : 'block';
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
+

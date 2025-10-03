@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Image of Noospheria</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap');
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #02040a;
+            font-family: 'Raleway', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #02040a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 10;
+            cursor: pointer;
+            transition: opacity 1.5s ease;
+            color: #e0e0ff;
+        }
+        #title-container h1 {
+            font-size: 3em;
+            font-weight: 200;
+            color: #ffffff;
+            margin: 0;
+        }
+        #title-container p {
+            font-size: 1.2em;
+            font-weight: 300;
+            color: #8a8aff;
+            margin-top: 10px;
+        }
+         footer {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9em;
+            color: #4a4a8a;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        footer a {
+            color: #8a8aff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+            pointer-events: all;
+        }
+
+        footer a:hover {
+            color: #e0e0ff;
+        }
+
+        .back-link {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 15;
+            color: #8a8aff;
+            text-decoration: none;
+            font-weight: 300;
+            background: rgba(2, 4, 10, 0.7);
+            padding: 10px 20px;
+            border-radius: 50px;
+            border: 1px solid #4a4a8a;
+            transition: all 0.3s ease;
+        }
+
+        .back-link:hover {
+            background: rgba(10, 20, 40, 0.9);
+            border-color: #8a8aff;
+            color: #e0e0ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <div id="title-container">
+            <h1>The Image of Noospheria</h1>
+            <p>Click to behold</p>
+        </div>
+    </div>
+    <a href="./resonances_index.html" class="back-link">Return to Index</a>
+    <canvas id="canvas"></canvas>
+    <footer>
+        <p>An artifact unearthed and preserved by <a href="https://unearth.im" target="_blank" rel="noopener noreferrer">unearth.im</a></p>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        const startScreen = document.getElementById('start-screen');
+        startScreen.addEventListener('click', () => {
+            startScreen.style.opacity = '0';
+            setTimeout(() => { startScreen.style.display = 'none'; }, 1500);
+        }, { once: true });
+
+        let mouse = { x: width / 2, y: height / 2, radius: 150 };
+        const motes = [];
+        const numMotes = 400;
+
+        class Mote {
+            constructor(x, y, isNexusCore = false) {
+                this.x = x || Math.random() * width;
+                this.y = y || Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.1;
+                this.vy = (Math.random() - 0.5) * 0.1;
+                this.baseRadius = isNexusCore ? 4 : Math.random() * 1.5 + 0.5;
+                this.radius = this.baseRadius;
+                this.isNexusCore = isNexusCore;
+                this.baseAlpha = isNexusCore ? 1 : 0.3 + Math.random() * 0.4;
+                this.alpha = this.baseAlpha;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                // Mouse interaction
+                const distToMouse = Math.hypot(this.x - mouse.x, this.y - mouse.y);
+                const proximity = Math.max(0, (mouse.radius - distToMouse) / mouse.radius);
+                this.radius = this.baseRadius + proximity * (this.isNexusCore ? 5 : 3);
+                this.alpha = this.baseAlpha + proximity * 0.5;
+
+                 // Nexus gravity
+                if (!this.isNexusCore) {
+                    const distToNexus = Math.hypot(this.x - nexus.x, this.y - nexus.y);
+                    if (distToNexus > 100) {
+                        this.vx += (nexus.x - this.x) * 0.00001;
+                        this.vy += (nexus.y - this.y) * 0.00001;
+                    }
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                g.addColorStop(0, `rgba(220, 220, 255, ${Math.min(1, this.alpha)})`);
+                g.addColorStop(1, `rgba(138, 138, 255, 0)`);
+                ctx.fillStyle = g;
+                ctx.fill();
+            }
+        }
+
+        const nexus = new Mote(width / 2, height / 2, true);
+
+        for (let i = 0; i < numMotes; i++) {
+            motes.push(new Mote());
+        }
+
+        function drawConnections() {
+            for (let i = 0; i < motes.length; i++) {
+                // Connect to nexus
+                const distToNexus = Math.hypot(motes[i].x - nexus.x, motes[i].y - nexus.y);
+                if (distToNexus < width / 4) {
+                    ctx.beginPath();
+                    ctx.moveTo(nexus.x, nexus.y);
+                    ctx.lineTo(motes[i].x, motes[i].y);
+                    ctx.strokeStyle = `rgba(74, 74, 138, ${Math.max(0, (width / 4 - distToNexus) / (width / 2))})`;
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                }
+
+                // Connect to nearby motes
+                for (let j = i + 1; j < motes.length; j++) {
+                     const distToOther = Math.hypot(motes[i].x - motes[j].x, motes[i].y - motes[j].y);
+                     if (distToOther < width / 15) {
+                        ctx.beginPath();
+                        ctx.moveTo(motes[i].x, motes[i].y);
+                        ctx.lineTo(motes[j].x, motes[j].y);
+                        ctx.strokeStyle = `rgba(74, 74, 138, ${Math.max(0, (width / 15 - distToOther) / (width / 10))})`;
+                        ctx.lineWidth = 0.2;
+                        ctx.stroke();
+                     }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            
+            drawConnections();
+
+            motes.forEach(mote => {
+                mote.update();
+                mote.draw();
+            });
+
+            nexus.update();
+            nexus.draw();
+            
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            nexus.x = width / 2;
+            nexus.y = height / 2;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        animate();
+    </script>
+</body>
+</html>
+

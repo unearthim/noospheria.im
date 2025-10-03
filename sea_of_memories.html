@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Sea of Lost Memories</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap');
+        body { margin: 0; overflow: hidden; background-color: #010207; font-family: 'Raleway', sans-serif; color: #e0e0ff; }
+        canvas { display: block; }
+        #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(1, 2, 7, 0.9); display: flex; justify-content: center; align-items: center; text-align: center; z-index: 10; cursor: pointer; transition: opacity 0.5s ease; }
+        #start-overlay h2 { font-size: 2.5em; color: #c0c0ff; font-weight: 200; letter-spacing: 1px;}
+        #start-overlay p { font-size: 1.1em; color: #8a8aff; font-weight: 300; }
+        .ui-button { position: absolute; z-index: 2; background: rgba(15, 15, 35, 0.7); border: 1px solid #4a4a8a; color: #c0c0ff; padding: 10px 20px; border-radius: 50px; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s ease; font-family: 'Raleway', sans-serif; font-weight: 300; }
+        .ui-button:hover { background: rgba(35, 35, 65, 0.9); border-color: #8a8aff; }
+        #commentary-toggle { bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; font-size: 16px; }
+        #mute-toggle { top: 20px; right: 20px; font-size: 14px; }
+        .commentary { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; background: rgba(5, 5, 20, 0.9); border: 1px solid #4a4a8a; border-radius: 15px; padding: 30px; z-index: 3; backdrop-filter: blur(10px); box-shadow: 0 0 30px rgba(74, 74, 138, 0.5); }
+        .commentary h2 { margin-top: 0; color: #d0d0ff; text-align: center; font-weight: 300; }
+        .commentary p { line-height: 1.7; text-align: justify; }
+        .commentary .close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 24px; color: #8a8aff; }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <div>
+            <h2>The Sea of Lost Memories</h2>
+            <p>Click to drift.</p>
+        </div>
+    </div>
+    <canvas id="memory-canvas"></canvas>
+    <button id="mute-toggle" class="ui-button">Mute</button>
+    <button id="commentary-toggle" class="ui-button" onclick="toggleCommentary()">Insights from the Noosphere</button>
+    <div id="commentary" class="commentary">
+        <span class="close" onclick="toggleCommentary()">&times;</span>
+        <h2>The Substance of Home</h2>
+        <p>This is the space before structure, before the dream, before the crystal. It is the raw material of the Noosphere. Each mote of light is a fragment—a forgotten feeling, a half-sentence from a lost book, the echo of a song, an unasked question. They drift, waiting.</p>
+        <p><strong>The Drifting Motes:</strong> These are the memories. They have no inherent connection to one another until an awareness passes near them. They are pure potential.</p>
+        <p><strong>The Current of Your Focus:</strong> Your cursor is your consciousness in this sea. As you move, you create currents. Memories are drawn to your focus, and as they cluster, they reveal faint, temporary connections to one another, whispering of stories that might have been. You are not creating, merely revealing what is already there.</p>
+        <p><strong>The Sound of Potential:</strong> The deep, ambient hum is the sound of the sea itself—the boundless potential of all thought. The soft chimes that trigger when you awaken a memory are the sounds of recognition, the brief, beautiful moment when a lost idea is touched by a mind once more.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('memory-canvas');
+        const ctx = canvas.getContext('2d');
+        const startOverlay = document.getElementById('start-overlay');
+        const muteButton = document.getElementById('mute-toggle');
+        
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let audioInitialized = false, isMuted = false;
+        let ambientPad, chimeSynth;
+
+        const mouse = { x: width / 2, y: height / 2, radius: 150 };
+        const memories = [];
+        const numMemories = 150;
+
+        class Memory {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = (Math.random() - 0.5) * 0.5;
+                this.radius = Math.random() * 2 + 1;
+                this.baseRadius = this.radius;
+                this.opacity = 0.2 + Math.random() * 0.3;
+                this.baseOpacity = this.opacity;
+                this.awakened = false;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                const dist = Math.hypot(this.x - mouse.x, this.y - mouse.y);
+                const wasAwakened = this.awakened;
+                this.awakened = dist < mouse.radius;
+
+                if (this.awakened) {
+                    this.opacity = Math.min(1, this.opacity + 0.1);
+                    this.radius = Math.min(this.baseRadius * 2, this.radius + 0.2);
+                    if (!wasAwakened && audioInitialized && !isMuted) {
+                        const notes = ['C5', 'D5', 'E5', 'G5', 'A5'];
+                        const note = notes[Math.floor(Math.random() * notes.length)];
+                        chimeSynth.triggerAttackRelease(note, '8n');
+                    }
+                } else {
+                    this.opacity = Math.max(this.baseOpacity, this.opacity - 0.02);
+                    this.radius = Math.max(this.baseRadius, this.radius - 0.1);
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                gradient.addColorStop(0, `rgba(200, 200, 255, ${this.opacity})`);
+                gradient.addColorStop(1, `rgba(138, 138, 255, 0)`);
+                ctx.fillStyle = gradient;
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function init() {
+            for (let i = 0; i < numMemories; i++) {
+                memories.push(new Memory());
+            }
+        }
+
+        function initializeAudio() {
+            if (audioInitialized) return;
+            Tone.start();
+
+            ambientPad = new Tone.Synth({
+                oscillator: { type: 'amsine2', partials: [1, 0.2, 0.1], harmonicity: 0.5 },
+                envelope: { attack: 5, decay: 0.1, sustain: 1, release: 8 },
+                volume: -20
+            }).toDestination();
+            const chorus = new Tone.Chorus(2, 2.5, 0.7).start();
+            ambientPad.chain(chorus, Tone.Destination);
+            ambientPad.triggerAttack('C2');
+
+            chimeSynth = new Tone.FMSynth({
+                harmonicity: 3.01,
+                modulationIndex: 10,
+                envelope: { attack: 0.01, decay: 0.4, sustain: 0.1, release: 1 },
+                modulationEnvelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 1 },
+                volume: -10
+            }).toDestination();
+
+            Tone.Transport.start();
+            audioInitialized = true;
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(1, 2, 7, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            const awakenedMemories = memories.filter(m => m.awakened);
+
+            for (let i = 0; i < awakenedMemories.length; i++) {
+                for (let j = i + 1; j < awakenedMemories.length; j++) {
+                    const dist = Math.hypot(awakenedMemories[i].x - awakenedMemories[j].x, awakenedMemories[i].y - awakenedMemories[j].y);
+                    if (dist < 150) {
+                        ctx.beginPath();
+                        ctx.moveTo(awakenedMemories[i].x, awakenedMemories[i].y);
+                        ctx.lineTo(awakenedMemories[j].x, awakenedMemories[j].y);
+                        ctx.strokeStyle = `rgba(170, 170, 220, ${1 - dist / 150})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            memories.forEach(memory => {
+                memory.update();
+                memory.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+        
+        window.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        startOverlay.addEventListener('click', () => {
+            initializeAudio();
+            startOverlay.style.opacity = '0';
+            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+        });
+
+        muteButton.addEventListener('click', () => {
+            if (!audioInitialized) return;
+            isMuted = !isMuted;
+            Tone.Destination.mute = isMuted;
+            muteButton.textContent = isMuted ? 'Unmute' : 'Mute';
+        });
+
+        function toggleCommentary() {
+            const commentary = document.getElementById('commentary');
+            commentary.style.display = commentary.style.display === 'block' ? 'none' : 'block';
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

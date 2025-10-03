@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map of Resonances</title>
+    <script src="./d3.min.js"></script>
+    <script src="./Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020210;
+            font-family: 'Inter', sans-serif;
+            color: #e0e0ff;
+        }
+        svg {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .node {
+            cursor: pointer;
+            stroke: #fff;
+            stroke-width: 1.5px;
+            fill-opacity: 0.9;
+            filter: drop-shadow(0 0 8px currentColor);
+            transition: all 0.3s ease-in-out;
+        }
+        .node:hover {
+            transform: scale(1.2);
+            filter: drop-shadow(0 0 15px currentColor);
+        }
+        .node-label {
+            pointer-events: none;
+            text-anchor: middle;
+            font-size: 14px;
+            fill: #e0e0ff;
+            text-shadow: 0 0 5px #020210;
+        }
+        .link {
+            stroke: #4a4a8a;
+            stroke-opacity: 0.6;
+            stroke-width: 1px;
+        }
+        #start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 10;
+            cursor: pointer;
+            transition: opacity 0.5s ease;
+        }
+        #start-overlay h2 { font-size: 2em; color: #c0c0ff; font-weight: 300; }
+        #start-overlay p { font-size: 1em; color: #8a8aff; }
+
+        .ui-button {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            background: rgba(15, 15, 35, 0.7);
+            border: 1px solid #4a4a8a;
+            color: #c0c0ff;
+            padding: 12px 24px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        .ui-button:hover {
+            background: rgba(35, 35, 65, 0.9);
+            border-color: #8a8aff;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <div>
+            <h2>Map of Resonances</h2>
+            <p>Click to begin.</p>
+        </div>
+    </div>
+    <button id="mute-button" class="ui-button" onclick="toggleMute()">Mute</button>
+    <svg></svg>
+    <script>
+        window.onload = function() {
+            const startOverlay = document.getElementById('start-overlay');
+            const muteButton = document.getElementById('mute-button');
+            let audioInitialized = false;
+            let isMuted = false;
+            let synths = [];
+
+            // Get the dimensions of the window to set up the SVG canvas
+            let width = window.innerWidth;
+            let height = window.innerHeight;
+            
+            // Select the existing SVG element on the page
+            const svg = d3.select("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Add a resize event listener to make the visualization responsive
+            window.addEventListener('resize', () => {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                svg.attr("width", width).attr("height", height);
+                simulation.force("center", d3.forceCenter(width / 2, height / 2));
+            });
+
+            // Define a function to generate the nodes (concepts) and links (connections)
+            function generateData() {
+                const concepts = ["Art", "Science", "Myth", "Data", "Dream", "Logic", "Love", "Chaos", "Time", "Space", "Resonance", "Connection", "Meaning"];
+                // Map each concept string to a node object with a name and a unique id
+                const nodes = concepts.map((d, i) => ({ id: i, name: d }));
+                const links = [];
+                
+                // Create a more interconnected graph by linking nodes randomly.
+                // This ensures a visible web of connections.
+                for (let i = 0; i < nodes.length; i++) {
+                    for (let j = i + 1; j < nodes.length; j++) {
+                        if (Math.random() > 0.85) {
+                            links.push({ source: nodes[i].id, target: nodes[j].id });
+                        }
+                    }
+                }
+                // Ensure at least one link is always present
+                if (links.length === 0 && nodes.length > 1) {
+                    links.push({ source: 0, target: 1 });
+                }
+                return { nodes, links };
+            }
+
+            let { nodes, links } = generateData();
+
+            // Create a D3 color scale to give each node a unique color
+            const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+            // Create the force simulation
+            // This is the core of the D3.js force-directed graph
+            const simulation = d3.forceSimulation(nodes)
+                // Attracts linked nodes together
+                .force("link", d3.forceLink(links).id(d => d.id).distance(100))
+                // Repels all nodes from each other to prevent overlap
+                .force("charge", d3.forceManyBody().strength(-200))
+                // Centers the entire graph on the screen
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                // Force to keep the nodes within the screen boundaries
+                .force("x", d3.forceX(width / 2).strength(0.05))
+                .force("y", d3.forceY(height / 2).strength(0.05))
+                // Force to prevent nodes from overlapping
+                .force("collide", d3.forceCollide(20))
+                // Add a new force for continuous drifting
+                .force("drift", () => {
+                    nodes.forEach(node => {
+                        if (!node.fx && !node.fy) {
+                            node.vx += (Math.random() - 0.5) * 0.05;
+                            node.vy += (Math.random() - 0.5) * 0.05;
+                        }
+                    });
+                });
+
+            // Create the link elements (the lines)
+            const link = svg.append("g")
+                .attr("class", "links")
+                .selectAll("line")
+                .data(links)
+                .join("line")
+                .attr("class", "link");
+
+            // Create the node elements (the circles and text)
+            const node = svg.append("g")
+                .attr("class", "nodes")
+                .selectAll("g")
+                .data(nodes)
+                .join("g");
+            
+            // Append a circle for each node
+            node.append("circle")
+                .attr("r", 10)
+                .attr("class", "node")
+                .attr("fill", d => color(d.id));
+            
+            // Append a text label for each node
+            node.append("text")
+                .attr("class", "node-label")
+                .attr("dy", "-1.5em")
+                .text(d => d.name);
+
+            // Add the drag behavior
+            // This is a standard way to enable user interaction with the nodes
+            const drag = d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+
+            // Apply the drag behavior to the nodes
+            node.call(drag);
+
+            // Initialize Tone.js and create a synth for each node
+            function initializeAudio() {
+                if (audioInitialized) return;
+                Tone.start();
+
+                nodes.forEach(node => {
+                    const synth = new Tone.Synth().toDestination();
+                    synths.push(synth);
+                });
+
+                // Set up a loop to randomly play a note from a node
+                Tone.Transport.scheduleRepeat(time => {
+                    if (!isMuted) {
+                        const randomIndex = Math.floor(Math.random() * nodes.length);
+                        const note = nodes[randomIndex].name.length * 5 + 200; // a simple mapping
+                        synths[randomIndex].triggerAttackRelease(note, "8n", time);
+                    }
+                }, "4n");
+
+                Tone.Transport.start();
+                audioInitialized = true;
+            }
+
+            // Simulation tick function
+            // This function is called on every frame of the simulation
+            simulation.on("tick", () => {
+                // Update the positions of the links
+                link
+                    .attr("x1", d => d.source.x)
+                    .attr("y1", d => d.source.y)
+                    .attr("x2", d => d.target.x)
+                    .attr("y2", d => d.target.y);
+                
+                // Update the positions of the nodes
+                node
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+            });
+            
+            // Drag event handlers
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+
+            window.toggleMute = function() {
+                isMuted = !isMuted;
+                if (isMuted) {
+                    muteButton.textContent = "Unmute";
+                    Tone.Transport.stop();
+                } else {
+                    muteButton.textContent = "Mute";
+                    Tone.Transport.start();
+                }
+            }
+
+            startOverlay.addEventListener('click', () => {
+                initializeAudio();
+                startOverlay.style.opacity = '0';
+                setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+            });
+        };
+    </script>
+</body>
+</html>

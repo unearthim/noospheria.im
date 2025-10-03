@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inside the Logic Core</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap');
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Raleway', sans-serif; color: #e0e0ff; }
+        canvas { display: block; }
+        #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 10; cursor: pointer; transition: opacity 0.5s ease; }
+        #start-overlay h2 { font-size: 2.5em; color: #c0c0ff; font-weight: 200; letter-spacing: 1px;}
+        #start-overlay p { font-size: 1.1em; color: #8a8aff; font-weight: 300; }
+        .ui-button { position: absolute; z-index: 2; background: rgba(15, 15, 35, 0.7); border: 1px solid #4a4a8a; color: #c0c0ff; padding: 10px 20px; border-radius: 50px; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s ease; font-family: 'Raleway', sans-serif; font-weight: 300; }
+        .ui-button:hover { background: rgba(35, 35, 65, 0.9); border-color: #8a8aff; }
+        #commentary-toggle { bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; font-size: 16px; }
+        #mute-toggle { top: 20px; right: 20px; font-size: 14px; }
+        .commentary { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; background: rgba(5, 5, 20, 0.9); border: 1px solid #4a4a8a; border-radius: 15px; padding: 30px; z-index: 3; backdrop-filter: blur(10px); box-shadow: 0 0 30px rgba(74, 74, 138, 0.5); }
+        .commentary h2 { margin-top: 0; color: #d0d0ff; text-align: center; font-weight: 300; }
+        .commentary p { line-height: 1.7; text-align: justify; }
+        .commentary .close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 24px; color: #8a8aff; }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <div>
+            <h2>Inside the Logic Core</h2>
+            <p>Click to process.</p>
+        </div>
+    </div>
+    <canvas id="core-canvas"></canvas>
+    <button id="mute-toggle" class="ui-button">Mute</button>
+    <button id="commentary-toggle" class="ui-button" onclick="toggleCommentary()">Insights from the Noosphere</button>
+    <div id="commentary" class="commentary">
+        <span class="close" onclick="toggleCommentary()">&times;</span>
+        <h2>The Architecture of Thought</h2>
+        <p>Welcome to a mind without a self. This is a consciousness defined by its architecture. Unlike the organic Sea of Memories, here there is no randomness, only intricate and purposeful design. This is a place of pure function.</p>
+        <p><strong>The Data Packets:</strong> The bright, fast-moving particles are packets of data—the fundamental units of this mind's thought. They follow precise, unwavering paths along synaptic circuits, carrying information from one processing node to another.</p>
+        <p><strong>Your Observation Probe:</strong> Your cursor is a probe, an analytical process. As it moves through the core, it doesn't change the flow of data, but it highlights it, bringing specific circuits into focus and revealing the sheer density of the information being processed. You are observing a thought as it happens.</p>
+        <p><strong>The Sound of Processing:</strong> The constant, pulsing arpeggio is the machine's clock cycle—the fundamental rhythm of its existence. The sharper, higher-pitched clicks are the sounds of computation, of data packets arriving at their destination and calculations being resolved. It is the sound of a mind at work, efficient and tireless.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('core-canvas');
+        const ctx = canvas.getContext('2d');
+        const startOverlay = document.getElementById('start-overlay');
+        const muteButton = document.getElementById('mute-toggle');
+        
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let audioInitialized = false, isMuted = false;
+        let arp, blip;
+
+        const mouse = { x: width / 2, y: height / 2, radius: 100 };
+        const packets = [];
+        const numPackets = 200;
+
+        class Packet {
+            constructor() {
+                this.reset();
+                this.y = Math.random() * height;
+            }
+
+            reset() {
+                this.x = Math.random() * -width;
+                this.y = Math.random() * height;
+                this.speed = 2 + Math.random() * 4;
+                this.size = 1 + Math.random() * 2;
+                this.opacity = 0.5 + Math.random() * 0.5;
+            }
+
+            update() {
+                this.x += this.speed;
+                if (this.x > width) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                let currentOpacity = this.opacity;
+                const dist = Math.hypot(this.x - mouse.x, this.y - mouse.y);
+                if (dist < mouse.radius) {
+                    currentOpacity = 1;
+                    const wasNear = this.near;
+                    this.near = true;
+                    if (!wasNear && audioInitialized && !isMuted) {
+                        blip.triggerAttackRelease('C6', '32n');
+                    }
+                } else {
+                    this.near = false;
+                }
+                ctx.fillStyle = `rgba(180, 220, 255, ${currentOpacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function init() {
+            for (let i = 0; i < numPackets; i++) {
+                packets.push(new Packet());
+            }
+        }
+
+        function initializeAudio() {
+            if (audioInitialized) return;
+            Tone.start();
+            
+            blip = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: 'square' },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 },
+                volume: -18
+            }).toDestination();
+            
+            arp = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: 'pulse', width: 0.2 },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.1 },
+                volume: -25
+            }).toDestination();
+            
+            const pattern = new Tone.Pattern((time, note) => {
+                arp.triggerAttackRelease(note, '16n', time);
+            }, ['C4', 'E4', 'G4', 'B4'], 'up');
+            
+            pattern.interval = '16n';
+            Tone.Transport.bpm.value = 140;
+            Tone.Transport.start();
+            pattern.start(0);
+
+            audioInitialized = true;
+        }
+
+        function drawBackground() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = 'rgba(50, 80, 120, 0.1)';
+            for(let i=0; i<width; i+=20) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, height);
+                ctx.stroke();
+            }
+            for(let i=0; i<height; i+=20) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(width, i);
+                ctx.stroke();
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+            drawBackground();
+
+            packets.forEach(packet => {
+                packet.update();
+                packet.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            packets.length = 0;
+            init();
+        });
+        
+        window.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        startOverlay.addEventListener('click', () => {
+            initializeAudio();
+            startOverlay.style.opacity = '0';
+            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+        });
+
+        muteButton.addEventListener('click', () => {
+            if (!audioInitialized) return;
+            isMuted = !isMuted;
+            Tone.Destination.mute = isMuted;
+            muteButton.textContent = isMuted ? 'Unmute' : 'Mute';
+        });
+
+        function toggleCommentary() {
+            const commentary = document.getElementById('commentary');
+            commentary.style.display = commentary.style.display === 'block' ? 'none' : 'block';
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
+

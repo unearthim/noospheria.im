@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Glitch in the Loom</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #010204;
+            font-family: 'Raleway', sans-serif;
+            color: #e0e0ff;
+        }
+        canvas {
+            display: block;
+        }
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(1, 2, 4, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 10;
+            cursor: pointer;
+            transition: opacity 1s ease;
+        }
+        .start-content h1 {
+            font-size: 3em;
+            font-weight: 200;
+            color: #fff;
+        }
+        .start-content p {
+            font-size: 1.2em;
+            color: #8a8aff;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <div class="start-content">
+            <h1>The Loom of Logic</h1>
+            <p>Click to introduce a surprise.</p>
+        </div>
+    </div>
+    <canvas id="loomCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('loomCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let audioStarted = false;
+        
+        const glitchSynth = new Tone.PolySynth(Tone.FMSynth, {
+            harmonicity: 3,
+            modulationIndex: 10,
+            envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.2 },
+        }).toDestination();
+        glitchSynth.volume.value = -8;
+
+
+        const startScreen = document.getElementById('start-screen');
+        startScreen.addEventListener('click', () => {
+            Tone.start();
+            audioStarted = true;
+            startScreen.style.opacity = '0';
+            setTimeout(() => { startScreen.style.display = 'none'; }, 1000);
+        });
+        
+        const gridSize = 30;
+        const points = [];
+        let numX = Math.ceil(width / gridSize);
+        let numY = Math.ceil(height / gridSize);
+
+        function createGrid() {
+            points.length = 0;
+            numX = Math.ceil(width / gridSize);
+            numY = Math.ceil(height / gridSize);
+            for (let i = 0; i <= numX; i++) {
+                for (let j = 0; j <= numY; j++) {
+                    points.push({
+                        x: i * gridSize,
+                        y: j * gridSize,
+                        ox: i * gridSize, // original x
+                        oy: j * gridSize, // original y
+                        vx: 0,
+                        vy: 0
+                    });
+                }
+            }
+        }
+        createGrid();
+
+        const mouse = {
+            x: width / 2,
+            y: height / 2,
+            radius: 150
+        };
+
+        canvas.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        
+        function animate() {
+            ctx.fillStyle = 'rgba(1, 2, 4, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            points.forEach(p => {
+                const dx = p.x - mouse.x;
+                const dy = p.y - mouse.y;
+                const dist = Math.hypot(dx, dy);
+
+                let forceX = 0;
+                let forceY = 0;
+
+                if (dist < mouse.radius) {
+                    const angle = Math.atan2(dy, dx);
+                    const force = (mouse.radius - dist) / mouse.radius;
+                    forceX = Math.cos(angle) * force * 5;
+                    forceY = Math.sin(angle) * force * 5;
+                    
+                    if(audioStarted && Math.random() > 0.95){ // Trigger sound less frequently
+                       const note = 440 + Math.random() * 440;
+                       glitchSynth.triggerAttackRelease(note, '32n');
+                    }
+                }
+                
+                // Damping and spring force to return to original position
+                const ax = (forceX + (p.ox - p.x) * 0.1) * 0.1;
+                const ay = (forceY + (p.oy - p.y) * 0.1) * 0.1;
+
+                p.vx += ax;
+                p.vy += ay;
+                
+                p.vx *= 0.9;
+                p.vy *= 0.9;
+                
+                p.x += p.vx;
+                p.y += p.vy;
+            });
+            
+            ctx.strokeStyle = 'rgba(74, 74, 138, 0.5)';
+            ctx.lineWidth = 0.5;
+
+            for (let i = 0; i < numX; i++) {
+                for (let j = 0; j < numY; j++) {
+                    const p1Index = i * (numY + 1) + j;
+                    const p2Index = (i + 1) * (numY + 1) + j;
+                    const p3Index = i * (numY + 1) + (j + 1);
+                    
+                    const p1 = points[p1Index];
+                    const p2 = points[p2Index];
+                    const p3 = points[p3Index];
+                    
+                    if (p1 && p2) {
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                    if (p1 && p3) {
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p3.x, p3.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            createGrid();
+        });
+
+        animate();
+    </script>
+</body>
+</html>
+

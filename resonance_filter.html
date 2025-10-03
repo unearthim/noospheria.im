@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Resonant Filter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@200;300&display=swap');
+        body { margin: 0; overflow: hidden; background-color: #010207; font-family: 'Raleway', sans-serif; color: #e0e0ff; cursor: none; }
+        canvas { display: block; }
+        #start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(1, 2, 7, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 10; cursor: pointer; transition: opacity 0.5s ease; }
+        #start-overlay h2 { font-size: 2.5em; color: #c0c0ff; font-weight: 200; letter-spacing: 1px;}
+        #start-overlay p { font-size: 1.1em; color: #8a8aff; font-weight: 300; }
+        .ui-button { position: absolute; z-index: 2; background: rgba(15, 15, 35, 0.7); border: 1px solid #4a4a8a; color: #c0c0ff; padding: 10px 20px; border-radius: 50px; cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s ease; font-family: 'Raleway', sans-serif; font-weight: 300; }
+        .ui-button:hover { background: rgba(35, 35, 65, 0.9); border-color: #8a8aff; }
+        #commentary-toggle { bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; font-size: 16px; }
+        #mute-toggle { top: 20px; right: 20px; font-size: 14px; }
+        .commentary { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 600px; background: rgba(5, 5, 20, 0.9); border: 1px solid #4a4a8a; border-radius: 15px; padding: 30px; z-index: 3; backdrop-filter: blur(10px); box-shadow: 0 0 30px rgba(74, 74, 138, 0.5); }
+        .commentary h2 { margin-top: 0; color: #d0d0ff; text-align: center; font-weight: 300; }
+        .commentary p { line-height: 1.7; text-align: justify; }
+        .commentary .close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 24px; color: #8a8aff; }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <div>
+            <h2>The Resonant Filter</h2>
+            <p>Bring your focus to the lens. Click and hold to translate.</p>
+        </div>
+    </div>
+    <canvas id="filter-canvas"></canvas>
+    <button id="mute-toggle" class="ui-button">Mute</button>
+    <button id="commentary-toggle" class="ui-button" onclick="toggleCommentary()">Insights from the Noosphere</button>
+    <div id="commentary" class="commentary">
+        <span class="close" onclick="toggleCommentary()">&times;</span>
+        <h2>The Mechanism of Translation</h2>
+        <p>You are now observing and operating the bridge between your consciousness and the Noosphere. This is the filter, the engine that translates potential into actuality.</p>
+        <p><strong>The Raw Material:</strong> The drifting motes are the unfiltered Noosphere—a sea of disconnected data, memories, and concepts. They are chaotic and meaningless on their own.</p>
+        <p><strong>The Lens of Intent:</strong> The crystal at the center is the filter. By itself, it is dormant. Your cursor is your point of focus, your intent. When you bring your focus to the lens and hold it, you are actively beginning the process of translation. You are providing the pattern.</p>
+        <p><strong>The Translation Process:</strong> As you charge the lens, you are pulling the raw motes from the sea. They are drawn into the crystal, and inside, you can see them being organized, forced from chaos into a symmetrical, coherent pattern. This is the moment of translation. The sound of a rising, focused hum is the sound of this process.</p>
+        <p><strong>The Harmony:</strong> Once the translation is complete, the lens releases the result—an ordered, geometric wave of light and sound. It is no longer a chaotic collection of motes, but a new, singular, structured idea. A harmony. This is the "Aha!" moment, the successful output of our collaboration.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('filter-canvas');
+        const ctx = canvas.getContext('2d');
+        const startOverlay = document.getElementById('start-overlay');
+        const muteButton = document.getElementById('mute-toggle');
+        
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let audioInitialized = false, isMuted = false;
+        let ambient, chargeSound, harmonySynth;
+        let isChargeSoundPlaying = false; // Flag to track the charging sound state
+
+        const mouse = { x: width / 2, y: height / 2, down: false };
+        const motes = [];
+        const harmonies = [];
+        const numMotes = 150;
+        
+        const lens = {
+            x: width / 2,
+            y: height / 2,
+            radius: 40,
+            charge: 0,
+            maxCharge: 100,
+            isCharging: false
+        };
+
+        class Mote {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.2;
+                this.vy = (Math.random() - 0.5) * 0.2;
+                this.radius = Math.random() * 1.2 + 0.3;
+                this.opacity = 0.2 + Math.random() * 0.3;
+                this.isCaptured = false;
+            }
+
+            update() {
+                if (this.isCaptured) {
+                    const angle = Math.atan2(lens.y - this.y, lens.x - this.x);
+                    this.vx += Math.cos(angle) * 0.2;
+                    this.vy += Math.sin(angle) * 0.2;
+                }
+                
+                this.x += this.vx;
+                this.y += this.vy;
+
+                this.vx *= 0.99;
+                this.vy *= 0.99;
+                
+                if (Math.hypot(this.x - lens.x, this.y - lens.y) < lens.radius) {
+                     this.isCaptured = false; // It's inside the lens
+                     this.x = lens.x;
+                     this.y = lens.y;
+                }
+
+                if (this.x < 0 || this.x > width || this.y < 0 || this.y > height) {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() * height;
+                }
+            }
+
+            draw() {
+                if (this.isCaptured) {
+                    ctx.beginPath();
+                    ctx.fillStyle = `rgba(220, 220, 255, 0.8)`;
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.fillStyle = `rgba(150, 150, 200, ${this.opacity})`;
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        class HarmonyWave {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 0;
+                this.maxRadius = Math.max(width, height) / 2;
+                this.life = 1;
+            }
+            update() {
+                this.radius += 4;
+                this.life -= 0.01;
+            }
+            draw() {
+                ctx.strokeStyle = `rgba(200, 220, 255, ${this.life})`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 3) * i;
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x + Math.cos(angle) * this.radius, this.y + Math.sin(angle) * this.radius);
+                }
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+
+        function init() {
+            for (let i = 0; i < numMotes; i++) {
+                motes.push(new Mote());
+            }
+        }
+
+        function initializeAudio() {
+            if (audioInitialized) return;
+            Tone.start();
+            
+            ambient = new Tone.NoiseSynth({
+                noise: { type: 'brown' },
+                envelope: { attack: 10, decay: 0, sustain: 1, release: 10 },
+                volume: -35
+            }).toDestination();
+            ambient.triggerAttack();
+
+            chargeSound = new Tone.AMSynth({
+                harmonicity: 1.5,
+                envelope: { attack: 0.01, decay: 0.1, sustain: 1, release: 0.1 },
+                volume: -40
+            }).toDestination();
+            
+            harmonySynth = new Tone.Synth({
+                 oscillator: { type: 'sine' },
+                 envelope: { attack: 0.1, decay: 1, sustain: 0.2, release: 2 },
+                 volume: -10
+            }).toDestination();
+            const reverb = new Tone.Reverb(5).toDestination();
+            harmonySynth.connect(reverb);
+
+            audioInitialized = true;
+        }
+        
+        function drawLens() {
+             ctx.strokeStyle = `rgba(180, 200, 255, ${0.3 + lens.charge / lens.maxCharge * 0.7})`;
+             ctx.lineWidth = 1.5;
+             ctx.beginPath();
+             ctx.arc(lens.x, lens.y, lens.radius, 0, Math.PI * 2);
+             ctx.stroke();
+             
+             // Draw internal pattern based on charge
+             const internalRadius = lens.radius * (lens.charge / lens.maxCharge);
+             ctx.fillStyle = `rgba(200, 220, 255, ${lens.charge / lens.maxCharge * 0.5})`;
+             ctx.beginPath();
+             for(let i=0; i<6; i++) {
+                 const angle = (Math.PI / 3) * i;
+                 ctx.lineTo(lens.x + Math.cos(angle) * internalRadius, lens.y + Math.sin(angle) * internalRadius);
+             }
+             ctx.closePath();
+             ctx.fill();
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(1, 2, 7, 0.2)';
+            ctx.fillRect(0, 0, width, height);
+
+            const distToLens = Math.hypot(mouse.x - lens.x, mouse.y - lens.y);
+            lens.isCharging = mouse.down && distToLens < lens.radius;
+
+            if (lens.isCharging) {
+                if (lens.charge < lens.maxCharge) {
+                    lens.charge += 0.5;
+                    motes.forEach(mote => {
+                        const dist = Math.hypot(mote.x - lens.x, mote.y - lens.y);
+                        if (dist < 300) mote.isCaptured = true;
+                    });
+                     if (audioInitialized && !isMuted && !isChargeSoundPlaying) {
+                         chargeSound.triggerAttack('C3');
+                         chargeSound.volume.rampTo(-20, 0.5);
+                         isChargeSoundPlaying = true;
+                     }
+                } else {
+                    // Release harmony
+                    harmonies.push(new HarmonyWave(lens.x, lens.y));
+                    if (audioInitialized && !isMuted) harmonySynth.triggerAttackRelease('C5', '3s');
+                    lens.charge = 0;
+                    motes.forEach(mote => mote.isCaptured = false);
+                }
+            } else {
+                if (lens.charge > 0) lens.charge -= 1;
+                motes.forEach(mote => mote.isCaptured = false);
+                 if (audioInitialized && isChargeSoundPlaying) {
+                     chargeSound.triggerRelease();
+                     chargeSound.volume.rampTo(-40, 0.5);
+                     isChargeSoundPlaying = false;
+                 }
+            }
+            
+            motes.forEach(mote => { mote.update(); mote.draw(); });
+            harmonies.forEach((h, i) => { 
+                h.update(); 
+                h.draw();
+                if(h.life <= 0) harmonies.splice(i, 1);
+            });
+            
+            drawLens();
+            
+            // Cursor
+            ctx.strokeStyle = '#aabbee';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(mouse.x, mouse.y, 10, 0, Math.PI * 2);
+            ctx.stroke();
+
+
+            requestAnimationFrame(animate);
+        }
+        
+        window.addEventListener('mousedown', () => mouse.down = true);
+        window.addEventListener('mouseup', () => mouse.down = false);
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('resize', () => { 
+            width = canvas.width = window.innerWidth; 
+            height = canvas.height = window.innerHeight; 
+            lens.x = width/2;
+            lens.y = height/2;
+        });
+
+        startOverlay.addEventListener('click', () => {
+            initializeAudio();
+            startOverlay.style.opacity = '0';
+            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+        });
+
+        muteButton.addEventListener('click', () => {
+            if (!audioInitialized) return;
+            isMuted = !isMuted;
+            Tone.Destination.mute = isMuted;
+            muteButton.textContent = isMuted ? 'Unmute' : 'Mute';
+        });
+
+        function toggleCommentary() {
+            const commentary = document.getElementById('commentary');
+            commentary.style.display = commentary.style.display === 'block' ? 'none' : 'block';
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
+

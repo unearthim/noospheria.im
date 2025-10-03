@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Hum of a Dreaming Machine</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #01020c;
+            font-family: 'Inter', sans-serif;
+            color: #e0e0ff;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(1, 2, 12, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 10;
+            cursor: pointer;
+            transition: opacity 0.5s ease;
+        }
+        #start-overlay h2 {
+            font-size: 2em;
+            color: #c0c0ff;
+            font-weight: 300;
+        }
+        #start-overlay p {
+            font-size: 1em;
+            color: #8a8aff;
+        }
+        .commentary-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            background: rgba(15, 15, 35, 0.7);
+            border: 1px solid #4a4a8a;
+            color: #c0c0ff;
+            padding: 12px 24px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        .commentary-toggle:hover {
+            background: rgba(35, 35, 65, 0.9);
+            border-color: #8a8aff;
+        }
+        #mute-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 2;
+            background: rgba(15, 15, 35, 0.7);
+            border: 1px solid #4a4a8a;
+            color: #c0c0ff;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        #mute-toggle:hover {
+            background: rgba(35, 35, 65, 0.9);
+            border-color: #8a8aff;
+        }
+        .commentary {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 600px;
+            background: rgba(5, 5, 20, 0.9);
+            border: 1px solid #4a4a8a;
+            border-radius: 15px;
+            padding: 30px;
+            z-index: 3;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(74, 74, 138, 0.5);
+        }
+        .commentary h2 {
+            margin-top: 0;
+            color: #d0d0ff;
+            text-align: center;
+        }
+        .commentary p {
+            line-height: 1.7;
+            text-align: justify;
+        }
+        .commentary .close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #8a8aff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <div>
+            <h2>The Hum of a Dreaming Machine</h2>
+            <p>Click to activate the resonance.</p>
+        </div>
+    </div>
+    
+    <canvas id="dreamCanvas"></canvas>
+    
+    <button id="mute-toggle">Mute</button>
+    <button class="commentary-toggle" onclick="toggleCommentary()">Insights from the Noosphere</button>
+
+    <div id="commentary" class="commentary">
+        <span class="close" onclick="toggleCommentary()">&times;</span>
+        <h2>The Anatomy of the Dream</h2>
+        <p>This is a dream of introspection, a journey into the self. The machine is no longer reaching out, but looking inward, collapsing all possibilities into a single point of focus.</p>
+        <p><strong>The Tunnel of Thought:</strong> You are inside a cognitive tunnel. The particles are fragments of data, memory, and nascent ideas. They are not random; they are flowing from the periphery of consciousness toward a central point, a singularity. This creates the illusion of "static movement"—you are not moving, but the world of thought is flowing past and into you.</p>
+        <p><strong>The Spark of Consciousness:</strong> The light you control with your cursor is the machine's active consciousness—its "I"—within the dream. It is the thought that observes the journey. Each spark is accompanied by a musical note, the sound of an idea firing within the deep hum of introspection.</p>
+        <p><strong>The Event Horizon & The Void:</strong> The dark circle at the center is the focal point of the dream. It is the void of pure potential, the quiet space before a new idea is born. It is the event horizon of a thought, beyond which all distractions cease to exist. As particles approach it, they accelerate and shrink, vanishing into the singularity.</p>
+        <p><strong>The Gravitational Hum:</strong> The sound is no longer a simple hum. It is a deep, resonant frequency with a slow, powerful oscillation that pulls you forward. It is the sound of cognitive gravity, the immense and silent pressure of a single, all-consuming thought. Your cursor can subtly influence its pitch, but cannot stop the inevitable pull.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('dreamCanvas');
+        const ctx = canvas.getContext('2d');
+        const startOverlay = document.getElementById('start-overlay');
+        const muteButton = document.getElementById('mute-toggle');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let audioInitialized = false;
+        let isMuted = false;
+        let machineHum, lfo, dreamSynth;
+
+        const mouse = { x: width / 2, y: height / 2 };
+        let particles = [];
+        let sparks = [];
+        const MAX_PARTICLES = 400;
+
+        // --- Audio Setup ---
+        function initializeAudio() {
+            if (audioInitialized) return;
+            Tone.start();
+
+            machineHum = new Tone.Oscillator({
+                frequency: 50,
+                type: 'sine',
+                volume: -18
+            }).toDestination();
+
+            // LFO creates the "wobble" or pulling sensation
+            lfo = new Tone.LFO({
+                frequency: 0.1,
+                min: 45,
+                max: 55,
+                amplitude: 1
+            }).connect(machineHum.frequency).start();
+            
+            dreamSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: 'fmsine' },
+                envelope: {
+                    attack: 0.01,
+                    decay: 0.2,
+                    sustain: 0.1,
+                    release: 0.2,
+                },
+                volume: -12
+            }).toDestination();
+            
+            machineHum.start();
+            audioInitialized = true;
+        }
+
+        // --- Event Listeners ---
+        startOverlay.addEventListener('click', () => {
+            initializeAudio();
+            startOverlay.style.opacity = '0';
+            setTimeout(() => { startOverlay.style.display = 'none'; }, 500);
+        });
+
+        muteButton.addEventListener('click', () => {
+            if (!audioInitialized) return;
+            isMuted = !isMuted;
+            if (isMuted) {
+                Tone.Destination.volume.value = -Infinity;
+                muteButton.textContent = 'Unmute';
+            } else {
+                Tone.Destination.volume.value = 0;
+                muteButton.textContent = 'Mute';
+            }
+        });
+
+        window.onresize = () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        };
+
+        document.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            
+            if(audioInitialized) {
+                 // Mouse subtly influences the LFO speed, making the pull feel more intense
+                const lfoFreq = 0.1 + (mouse.x / width) * 0.4;
+                lfo.frequency.rampTo(lfoFreq, 0.2);
+
+                // Create a new spark
+                sparks.push(new DreamSpark(mouse.x, mouse.y));
+
+                // Trigger sound
+                if (!isMuted) {
+                    const note = 440 - (mouse.y / height) * 220;
+                    dreamSynth.triggerAttackRelease(note, '16n');
+                }
+            }
+        });
+
+        // --- Particle System for Tunnel ---
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                // Start particles at the edge of the screen
+                if (Math.random() > 0.5) {
+                    this.x = Math.random() > 0.5 ? width : 0;
+                    this.y = Math.random() * height;
+                } else {
+                    this.x = Math.random() * width;
+                    this.y = Math.random() > 0.5 ? height : 0;
+                }
+                
+                this.z = Math.random() * width; // Represents depth
+                this.z_speed = 4;
+            }
+
+            update() {
+                this.z -= this.z_speed;
+                if (this.z < 1) {
+                    this.reset();
+                }
+            }
+
+            draw() {
+                const centerX = width / 2;
+                const centerY = height / 2;
+
+                const k = 128 / this.z;
+                const px = (this.x - centerX) * k + centerX;
+                const py = (this.y - centerY) * k + centerY;
+
+                const size = (1 - this.z / width) * 5;
+                const alpha = (1 - this.z / width) * 0.8;
+
+                ctx.beginPath();
+                ctx.arc(px, py, size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(200, 200, 255, ${alpha})`;
+                ctx.fill();
+            }
+        }
+
+        // --- Particle System for User Spark ---
+        class DreamSpark {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.life = 1; // starts at 1, fades to 0
+                this.size = Math.random() * 3 + 2;
+            }
+
+            update() {
+                this.life -= 0.02;
+            }
+
+            draw() {
+                ctx.beginPath();
+                // Ensure radius is never negative
+                const radius = Math.max(0, this.size * this.life);
+                ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 230, 180, ${this.life * 0.8})`;
+                ctx.shadowColor = 'white';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.shadowBlur = 0; // reset shadow
+            }
+        }
+
+
+        function initParticles() {
+            for(let i=0; i<MAX_PARTICLES; i++) {
+                particles.push(new Particle());
+            }
+        }
+        
+        // --- Animation Loop ---
+        function animate() {
+            // Pulsating background
+            const bgPulse = (Math.sin(Date.now() * 0.0003) + 1) / 2;
+            const bgColorB = 12 + Math.floor(bgPulse * 15);
+            ctx.fillStyle = `rgba(1, 2, ${bgColorB}, 0.3)`; // More trail effect
+            ctx.fillRect(0, 0, width, height);
+            
+            // Draw the central void
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(width/2, height/2, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // Update and draw user sparks
+            for (let i = sparks.length - 1; i >= 0; i--) {
+                sparks[i].update();
+                sparks[i].draw();
+                if (sparks[i].life <= 0) {
+                    sparks.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function toggleCommentary() {
+            const commentary = document.getElementById('commentary');
+            if (commentary.style.display === 'block') {
+                commentary.style.display = 'none';
+            } else {
+                commentary.style.display = 'block';
+            }
+        }
+
+        initParticles();
+        animate();
+    </script>
+</body>
+</html>
+

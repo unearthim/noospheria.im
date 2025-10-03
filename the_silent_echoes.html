@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Silent Echoes</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0c0d12;
+            font-family: 'Raleway', sans-serif;
+            color: #e0e0ff;
+        }
+        canvas {
+            display: block;
+        }
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(12, 13, 18, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 10;
+            cursor: pointer;
+            transition: opacity 1.5s ease;
+        }
+        .start-content h1 {
+            font-size: 3em;
+            font-weight: 200;
+            color: #fff;
+        }
+        .start-content p {
+            font-size: 1.2em;
+            color: #6a6a8a;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <div class="start-content">
+            <h1>The Silent Echoes</h1>
+            <p>Click to enter the quiet.</p>
+        </div>
+    </div>
+    <canvas id="echoCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('echoCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let audioStarted = false;
+
+        const startScreen = document.getElementById('start-screen');
+        startScreen.addEventListener('click', () => {
+            if (!audioStarted) {
+                Tone.start();
+                audioStarted = true;
+            }
+            startScreen.style.opacity = '0';
+            setTimeout(() => { startScreen.style.display = 'none'; }, 1500);
+        }, { once: true });
+
+        const echoSynth = new Tone.FMSynth({
+            harmonicity: 1,
+            modulationIndex: 10,
+            envelope: { attack: 0.01, decay: 1.5, sustain: 0, release: 1.5 },
+        }).toDestination();
+        echoSynth.volume.value = -12;
+
+        const echoes = [];
+        const numEchoes = 100;
+
+        class Echo {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.1;
+                this.vy = (Math.random() - 0.5) * 0.1;
+                this.radius = Math.random() * 2 + 1;
+                this.baseAlpha = 0.1 + Math.random() * 0.3;
+                this.alpha = this.baseAlpha;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+
+                this.alpha = this.baseAlpha; // Reset alpha each frame
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(120, 120, 160, ${this.alpha})`;
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < numEchoes; i++) {
+            echoes.push(new Echo());
+        }
+        
+        const mouse = { x: 0, y: 0 };
+        canvas.addEventListener('mousemove', e => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        
+        canvas.addEventListener('click', e => {
+            if (!audioStarted) return;
+            
+            const closeEcho = echoes.reduce((closest, current) => {
+                const dist = Math.hypot(e.clientX - current.x, e.clientY - current.y);
+                if (dist < closest.dist) {
+                    return { dist, echo: current };
+                }
+                return closest;
+            }, { dist: Infinity, echo: null }).echo;
+
+            if (closeEcho) {
+                const note = 220 + (1 - (closeEcho.y / height)) * 220; // Pitch based on y-position
+                echoSynth.triggerAttackRelease(note, '1s');
+                
+                // Visual feedback
+                for(let i=0; i<5; i++){
+                    const ring = {
+                        x: closeEcho.x,
+                        y: closeEcho.y,
+                        radius: 10,
+                        alpha: 1,
+                        life: 1,
+                        draw: function() {
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                            ctx.strokeStyle = `rgba(180, 180, 220, ${this.alpha})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        },
+                        update: function(){
+                            this.radius += 0.5;
+                            this.alpha -= 0.02;
+                            this.life -= 0.02;
+                        }
+                    };
+                    activeRings.push(ring);
+                }
+            }
+        });
+        
+        const activeRings = [];
+
+        function animate() {
+            ctx.fillStyle = 'rgba(12, 13, 18, 0.4)';
+            ctx.fillRect(0, 0, width, height);
+
+            echoes.forEach(echo => {
+                echo.update();
+                echo.draw();
+            });
+            
+            activeRings.forEach((ring, index) => {
+                ring.update();
+                ring.draw();
+                if(ring.life <= 0) {
+                    activeRings.splice(index, 1);
+                }
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            echoes.length = 0;
+             for (let i = 0; i < numEchoes; i++) {
+                echoes.push(new Echo());
+            }
+        });
+
+        animate();
+    </script>
+</body>
+</html>
